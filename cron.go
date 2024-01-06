@@ -3,6 +3,7 @@ package cron
 import (
 	"errors"
 	"fmt"
+	"math/bits"
 	"strconv"
 	"strings"
 	"time"
@@ -147,6 +148,10 @@ func parseFieldPart[T bitset8 | bitset16 | bitset32 | bitset64](fPart string, fB
 		return 0, ErrInvalidExpression
 	}
 
+	if begin > fBounds.max || begin < fBounds.min {
+		return 0, ErrInvalidExpression
+	}
+
 	var end int
 
 	// get the end of the range
@@ -160,6 +165,14 @@ func parseFieldPart[T bitset8 | bitset16 | bitset32 | bitset64](fPart string, fB
 		if err != nil {
 			return 0, ErrInvalidExpression
 		}
+	}
+
+	if end > fBounds.max || end < fBounds.min {
+		return 0, ErrInvalidExpression
+	}
+
+	if end < begin {
+		return 0, ErrInvalidExpression
 	}
 
 	/// parse the step
@@ -205,15 +218,36 @@ loop:
 
 	year := t.Year()
 	// find the first month matching the expression
-	for 1<<t.Month()&s.month == 0 {
+	if 1<<int(t.Month())&s.month == 0 {
+		// get the len of the bitset in bits
+		bitsLen := bits.Len(uint(s.month))
+
+		// get the next month in the bitset
+		var i int
+		for i = int(t.Month()) + 1; i < bitsLen; i++ {
+			if s.month&(1<<i) != 0 {
+				break
+			}
+		}
+
+		// if there is no next month, reset to the next year
+		if i >= bitsLen {
+			resetted = true
+			t = time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location()).AddDate(1, 0, 0)
+			goto loop
+		}
+
 		// if the month value have to be increased, reset the less significant time parts to 0 (only once)
 		if !resetted {
 			resetted = true
 			t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 		}
 
-		// add a month to the date
-		t = t.AddDate(0, 1, 0)
+		// calculate the difference between the date month and the next month in the expression
+		diff := i - int(t.Month())
+
+		// add the difference to the date
+		t = t.AddDate(0, diff, 0)
 
 		// if the year changed, continue the loop to ensure the maxYear condition
 		if t.Year() != year {
@@ -223,15 +257,36 @@ loop:
 
 	month := t.Month()
 	// find the first day matching the expression (day of week and day of month)
-	for 1<<t.Day()&s.dom == 0 || 1<<int(t.Weekday())&s.dow == 0 {
+	if 1<<t.Day()&s.dom == 0 || 1<<int(t.Weekday())&s.dow == 0 {
+		// get the len of the bitset in bits
+		bitsLen := bits.Len(uint(s.dom))
+
+		// get the next day in the bitset
+		var i int
+		for i = t.Day() + 1; i < bitsLen; i++ {
+			if s.dom&(1<<i) != 0 {
+				break
+			}
+		}
+
+		// if there is no next day, reset to the next month
+		if i >= bitsLen {
+			resetted = true
+			t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location()).AddDate(0, 1, 0)
+			goto loop
+		}
+
 		// if the day value have to be increased, reset the less significant time parts to 0 (only once)
 		if !resetted {
 			resetted = true
 			t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 		}
 
-		// add a day to the date
-		t = t.AddDate(0, 0, 1)
+		// calculate the difference between the date day and the next day in the expression
+		diff := i - int(t.Day())
+
+		// add the difference to the date
+		t = t.AddDate(0, 0, diff)
 
 		// if the month changed, run the loop again to ensure the maxYear and month conditions
 		if t.Month() != month {
@@ -241,15 +296,36 @@ loop:
 
 	day := t.Day()
 	// find the first day matching the expression
-	for 1<<t.Hour()&s.hour == 0 {
+	if 1<<t.Hour()&s.hour == 0 {
+		// get the len of the bitset in bits
+		bitsLen := bits.Len(uint(s.hour))
+
+		// get the next hour in the bitset
+		var i int
+		for i = t.Hour() + 1; i < bitsLen; i++ {
+			if s.hour&(1<<i) != 0 {
+				break
+			}
+		}
+
+		// if there is no next hour, reset to the next day
+		if i >= bitsLen {
+			resetted = true
+			t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).AddDate(0, 0, 1)
+			goto loop
+		}
+
 		// if the hour value have to be increased, reset the less significant time parts to 0 (only once)
 		if !resetted {
 			resetted = true
 			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 		}
 
-		// add an hour to the date
-		t = t.Add(1 * time.Hour)
+		// calculate the difference between the date hour and the next hour in the expression
+		diff := i - int(t.Hour())
+
+		// add the difference to the date
+		t = t.Add(time.Duration(diff) * time.Hour)
 
 		// if the month changed, run the loop again to ensure the maxYear, month and day conditions
 		if t.Day() != day {
@@ -259,11 +335,31 @@ loop:
 
 	hour := t.Hour()
 	// find the first minute matching the expression
-	for 1<<t.Minute()&s.minute == 0 {
-		// reset not needed (is done at the begining)
+	if 1<<t.Minute()&s.minute == 0 {
+		// get the len of the bitset in bits
+		bitsLen := bits.Len(uint(s.minute))
 
-		// add a minute to the date
-		t = t.Add(1 * time.Minute)
+		// get the next minute in the bitset
+		var i int
+		for i = t.Minute() + 1; i < bitsLen; i++ {
+			if s.minute&(1<<i) != 0 {
+				break
+			}
+		}
+
+		// if there is no next minute, reset to the next hour
+		if i >= bitsLen {
+			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location()).Add(1 * time.Hour)
+			goto loop
+		}
+
+		// reset not needed (is done at the begining with the truncate)
+
+		// calculate the difference between the date minute and the next minute in the expression
+		diff := i - int(t.Minute())
+
+		// add the difference to the date
+		t = t.Add(time.Duration(diff) * time.Minute)
 
 		// if the hour changed, run the loop again to ensure the maxYear, month, day and hour conditions
 		if t.Hour() != hour {
