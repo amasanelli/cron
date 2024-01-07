@@ -211,6 +211,12 @@ func (s *Cron) Next(t time.Time) (time.Time, error) {
 	// set the sec and nsec to 0 and add a minute (the closest match)
 	t = t.Truncate(time.Minute).Add(1 * time.Minute)
 
+	// get the len of the bitsets in bits
+	monthBitsLen := bits.Len(uint(s.month))
+	domBitsLen := bits.Len(uint(s.dom))
+	hourBitsLen := bits.Len(uint(s.hour))
+	minuteBitsLen := bits.Len(uint(s.minute))
+
 loop:
 	if t.Year() > maxYear {
 		return time.Time{}, ErrMaxYearLimit
@@ -219,19 +225,16 @@ loop:
 	year := t.Year()
 	// find the first month matching the expression
 	if 1<<int(t.Month())&s.month == 0 {
-		// get the len of the bitset in bits
-		bitsLen := bits.Len(uint(s.month))
-
 		// get the next month in the bitset
 		var i int
-		for i = int(t.Month()) + 1; i < bitsLen; i++ {
+		for i = int(t.Month()) + 1; i < monthBitsLen; i++ {
 			if s.month&(1<<i) != 0 {
 				break
 			}
 		}
 
 		// if there is no next month, reset to the next year
-		if i >= bitsLen {
+		if i >= monthBitsLen {
 			resetted = true
 			t = time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location()).AddDate(1, 0, 0)
 			goto loop
@@ -258,19 +261,16 @@ loop:
 	month := t.Month()
 	// find the first day matching the expression (day of week and day of month)
 	if 1<<t.Day()&s.dom == 0 || 1<<int(t.Weekday())&s.dow == 0 {
-		// get the len of the bitset in bits
-		bitsLen := bits.Len(uint(s.dom))
-
 		// get the next day in the bitset
 		var i int
-		for i = t.Day() + 1; i < bitsLen; i++ {
+		for i = t.Day() + 1; i < domBitsLen; i++ {
 			if s.dom&(1<<i) != 0 {
 				break
 			}
 		}
 
 		// if there is no next day, reset to the next month
-		if i >= bitsLen {
+		if i >= domBitsLen {
 			resetted = true
 			t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location()).AddDate(0, 1, 0)
 			goto loop
@@ -297,19 +297,16 @@ loop:
 	day := t.Day()
 	// find the first day matching the expression
 	if 1<<t.Hour()&s.hour == 0 {
-		// get the len of the bitset in bits
-		bitsLen := bits.Len(uint(s.hour))
-
 		// get the next hour in the bitset
 		var i int
-		for i = t.Hour() + 1; i < bitsLen; i++ {
+		for i = t.Hour() + 1; i < hourBitsLen; i++ {
 			if s.hour&(1<<i) != 0 {
 				break
 			}
 		}
 
 		// if there is no next hour, reset to the next day
-		if i >= bitsLen {
+		if i >= hourBitsLen {
 			resetted = true
 			t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).AddDate(0, 0, 1)
 			goto loop
@@ -336,19 +333,16 @@ loop:
 	hour := t.Hour()
 	// find the first minute matching the expression
 	if 1<<t.Minute()&s.minute == 0 {
-		// get the len of the bitset in bits
-		bitsLen := bits.Len(uint(s.minute))
-
 		// get the next minute in the bitset
 		var i int
-		for i = t.Minute() + 1; i < bitsLen; i++ {
+		for i = t.Minute() + 1; i < minuteBitsLen; i++ {
 			if s.minute&(1<<i) != 0 {
 				break
 			}
 		}
 
 		// if there is no next minute, reset to the next hour
-		if i >= bitsLen {
+		if i >= minuteBitsLen {
 			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location()).Add(1 * time.Hour)
 			goto loop
 		}
