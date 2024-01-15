@@ -288,6 +288,11 @@ loop:
 		// add the difference to the date
 		t = t.AddDate(0, 0, diff)
 
+		// if the weekday is not matching
+		if 1<<int(t.Weekday())&s.dow == 0 {
+			goto loop
+		}
+
 		// if the month changed, run the loop again to ensure the maxYear and month conditions
 		if t.Month() != month {
 			goto loop
