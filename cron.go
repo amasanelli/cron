@@ -222,7 +222,6 @@ loop:
 		return time.Time{}, ErrMaxYearLimit
 	}
 
-	year := t.Year()
 	// find the first month matching the expression
 	if 1<<int(t.Month())&s.month == 0 {
 		// get the next month in the bitset
@@ -251,11 +250,6 @@ loop:
 
 		// add the difference to the date
 		t = t.AddDate(0, diff, 0)
-
-		// if the year changed, continue the loop to ensure the maxYear condition
-		if t.Year() != year {
-			goto loop
-		}
 	}
 
 	month := t.Month()
@@ -294,13 +288,12 @@ loop:
 			goto loop
 		}
 
-		// if the weekday is not matching
+		// if the weekday is not matching, run the loop again to ensure the maxYear, month and dom conditions
 		if 1<<int(t.Weekday())&s.dow == 0 {
 			goto loop
 		}
 	}
 
-	day := t.Day()
 	// find the first day matching the expression
 	if 1<<t.Hour()&s.hour == 0 {
 		// get the next hour in the bitset
@@ -329,14 +322,8 @@ loop:
 
 		// add the difference to the date
 		t = t.Add(time.Duration(diff) * time.Hour)
-
-		// if the month changed, run the loop again to ensure the maxYear, month and day conditions
-		if t.Day() != day {
-			goto loop
-		}
 	}
 
-	hour := t.Hour()
 	// find the first minute matching the expression
 	if 1<<t.Minute()&s.minute == 0 {
 		// get the next minute in the bitset
@@ -360,11 +347,6 @@ loop:
 
 		// add the difference to the date
 		t = t.Add(time.Duration(diff) * time.Minute)
-
-		// if the hour changed, run the loop again to ensure the maxYear, month, day and hour conditions
-		if t.Hour() != hour {
-			goto loop
-		}
 	}
 
 	return t, nil
