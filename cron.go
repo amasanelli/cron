@@ -35,7 +35,7 @@ const (
 
 var (
 	boundMinute = fieldBounds{0, 59}
-	boundHour   = fieldBounds{0, 24}
+	boundHour   = fieldBounds{0, 23}
 	boundDOM    = fieldBounds{1, 31}
 	boundMonth  = fieldBounds{1, 12}
 	boundDOW    = fieldBounds{0, 6}
@@ -200,9 +200,6 @@ func buildBitset[T bitset8 | bitset16 | bitset32 | bitset64](min, max, step int)
 
 // returns the next time that matches the expression in the timezone of the input
 func (s *Cron) Next(t time.Time) (time.Time, error) {
-	// flag to reset the time only once
-	resetted := false
-
 	t = t.In(s.tz)
 
 	// calculates the max possible year for the loop
@@ -234,16 +231,12 @@ loop:
 
 		// if there is no next month, reset to the next year
 		if i >= monthBitsLen {
-			resetted = true
 			t = time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location()).AddDate(1, 0, 0)
 			goto loop
 		}
 
-		// if the month value have to be increased, reset the less significant time parts to 0 (only once)
-		if !resetted {
-			resetted = true
-			t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
-		}
+		// if the month value has to be increased, reset the less significant time parts to 0
+		t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 
 		// calculate the difference between the date month and the next month in the expression
 		diff := i - int(t.Month())
@@ -265,16 +258,12 @@ loop:
 
 		// if there is no next day, reset to the next month
 		if i >= domBitsLen {
-			resetted = true
 			t = time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location()).AddDate(0, 1, 0)
 			goto loop
 		}
 
-		// if the day value have to be increased, reset the less significant time parts to 0 (only once)
-		if !resetted {
-			resetted = true
-			t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-		}
+		// if the day value has to be increased, reset the less significant time parts to 0
+		t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 
 		// calculate the difference between the date day and the next day in the expression
 		diff := i - int(t.Day())
@@ -306,16 +295,12 @@ loop:
 
 		// if there is no next hour, reset to the next day
 		if i >= hourBitsLen {
-			resetted = true
 			t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location()).AddDate(0, 0, 1)
 			goto loop
 		}
 
-		// if the hour value have to be increased, reset the less significant time parts to 0 (only once)
-		if !resetted {
-			resetted = true
-			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
-		}
+		// if the hour value has to be increased, reset the less significant time parts to 0
+		t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 
 		// calculate the difference between the date hour and the next hour in the expression
 		diff := i - int(t.Hour())
